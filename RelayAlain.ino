@@ -26,6 +26,9 @@
 
 #define HOSTNAME "RelayAlain"
 
+// delai de la pulse en ms
+#define DELAY_PULSE  300
+
 //comment out to completly disable respective technology
 #define INCLUDE_BLYNK_SUPPORT
 
@@ -66,7 +69,7 @@ Ticker ticker;
 
 
 const int CMD_WAIT = 0;
-const int CMD_BUTTON_CHANGE = 1;
+const int CMD_BUTTON_PRESS = 1;
 const int CMD_BUTTON_VALID = 2;
 
 int cmd = CMD_WAIT;
@@ -130,8 +133,17 @@ void turnOff() {
   setState(relayState);
 }
 
+
+void relayPulse() {
+  int relayState = HIGH;
+  setState(relayState);
+  delay(DELAY_PULSE);
+  relayState = LOW;
+  setState(relayState);
+}
+
 void toggleState() {
-  if(cmd==CMD_WAIT)  cmd = CMD_BUTTON_CHANGE;
+  if(cmd==CMD_WAIT)  cmd = CMD_BUTTON_PRESS;
 }
 
 //flag for saving data
@@ -216,11 +228,8 @@ BLYNK_WRITE_DEFAULT() {
 }
 
 BLYNK_READ_DEFAULT() {
-  // Generate random response
   int pin = request.pin;
-  int action = pin % 5;
   Blynk.virtualWrite(pin, digitalRead(ESP_RELAY));
-
 }
 
 
@@ -235,6 +244,14 @@ BLYNK_WRITE(25) {
         turnOn();
         break;
     }
+}
+
+//pulse - button
+BLYNK_WRITE(26) {
+  int a = param.asInt();
+  if (a != 0) {
+    relayPulse();
+  }
 }
 
 //restart - button
@@ -431,7 +448,7 @@ void buttonChange()  {
     case CMD_WAIT:                // attent un appui
       break;
       
-    case CMD_BUTTON_CHANGE:       // si appui ou relache du bouton
+    case CMD_BUTTON_PRESS:       // si appui ou relache du bouton
       cmd = CMD_BUTTON_VALID;
       timeAntiRebond = millis();
       break;
@@ -445,8 +462,8 @@ void buttonChange()  {
             long duration = millis() - startPress;
             Serial.print("   DUREE="); Serial.println(duration);
             if (duration < 5000) {
-              //Serial.println("short press - toggle relay");
-              toggle();
+              Serial.println("short press - relay pulse");
+              relayPulse();
             } else if (duration >= 5000 && duration < 20000) {
               Serial.println("medium press - reset");
               restart();
@@ -461,11 +478,9 @@ void buttonChange()  {
         }
         cmd = CMD_WAIT;
       }
-
-
-    
-
       break;
+ 
+  
   }
 
 
